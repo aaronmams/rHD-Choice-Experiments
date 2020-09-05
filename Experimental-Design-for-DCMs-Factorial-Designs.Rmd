@@ -1,0 +1,400 @@
+---
+title: "Experimental-Design-for-DCMS-Factorial-Designs"
+author: "aaron mamula"
+date: "9/1/2020"
+output: html_document
+---
+
+# {.tabset .tabset-fade .tabset-pills}
+
+## Executive Summary
+
+This is a rather superficial illustration of some R functions and methods one can use to generate full factorial and fractional factorial experimental designs. I want to emphasize that this tutorial illustrates some things that **CAN** be done. I am not qualified to advise anyone on what **SHOULD** be done in the arena of experimental design for choice experiments. Although I claim no expertise in this domain, I have tried pretty hard to review the important literatue in order to create examples that, I hope, are not complete nonsense.
+
+Much of what is here is taken directly from the supporting documentation for the [support.CEs](https://cran.r-project.org/web/packages/support.CEs/support.CEs.pdf) package. 
+
+What I'm providing here can be summarized as follows:
+
+* demonstrate how the ```oa.design()``` function from the [DoE.base](https://cran.r-project.org/web/packages/DoE.base/index.html) package is used to retrieve orthogonal main effects arrays for experimental designs with particular attribute/level combinations.
+* illustrate the use of ```rotation.design()``` from the ```support.CEs``` package for generating experimental design using the 'rotation' method
+* illustrate the use of ```Lma.design()``` from the ```support.CEs``` package for generating experimental designs using the LMA method
+* illustrate the use of the ```fac.design()``` function from ```DoE.base``` for retriving a full factorial set of candidate profiles for an experiment with a particular attribute/level combination.
+* illustrate some of the other interesting miscellaneous features of the ```support.CEs``` package.
+
+## Packages and Dependencies
+
+The ```support.CEs``` package supports experimental design for choice experiments. My understanding is that the functions available in this package only support methods for design based on orthogonal main effects arrays. 
+
+The ```DoE.base``` package is used here mostly to provide the function ```oa.design()```. This function, as far as I can tell, is basically a look-up function for retrieving an orthogonal main effects array given a specified number of attributes and number of factor levels. The function chooses from a library of well-known orthogonal main effects arrays given the input parameters supplied.
+
+The ```survival``` package provides the conditional logit function ```clogit()``` that I use in a very 'back-of-the-envelope' illustration of estimating a DCM from some survey data.
+
+```{r warning=F}
+library(DoE.base)
+library(support.CEs)
+library(survival)
+```
+
+
+## Introduction and Set-up
+
+In this markdown, I will be using an example straight from the *Journal of Statistical Software* article written by the ```support.CEs``` package author: [Basic Functions for Supporting an Implementation
+of Choice Experiments in R](https://www.jstatsoft.org/article/view/v050c02/v50c02.pdf). 
+
+The Choice Experiment involves preferences for an agricultural treatment:
+
+> The product has three attributes: (1) the region of origin: this attribute has three levels – “Region A,” “Region B,” and “Region C”; (2) the eco-friendly label: this describes the three types of cultivation methods – “Conv. (conventional cultivation method),” “More (more eco-friendly cultivation method),” and “Most (most eco-friendly cultivation method)”; and (3) the price per piece of the product: this attribute has three levels – “$1,”“$1.1,” and “$1.2.” 
+
+The choice model for the conditional logit underlying the experiment can be expressed according to the following characteristics:
+
+The probability of individual $n$ selecting alternative $i$ from among all alternatives is
+
+$P_i = \frac{exp(V_{in})}{\sum_{j \in C}exp(V_{jn})}$
+
+where $V()$ is the indirect utility function defined linearly as:
+
+$V_{in} = \sum_{k=1}^{K}\beta_{ik}X_{ikn}$
+
+A quantity that is generally of interest to economists initiating choice experiments like the one describe above is the Marginal Willingness to Pay for some attribute. In the case of the experiment above, the MWTP for a non-monteary good comes from the parameters of the indirect utility function. If $\beta_{eco}$ is the utility parameter on the "eco-labeling variable" and $\beta_{price}$ is the parameter on the product price variable, than
+
+MWTP = $-\frac{\beta_{eco}}{\beta_{price}}$
+
+## Fractional Factorial Designs {.tabset}
+
+There are two main methods within the ```support.CEs``` package to generate an experimental design. They are ```rotation.design()``` and ```Lma.design()```. These two methods both generate fractional factorial designs from an orthogonal main effects array. They differ in the mechanics by which they transform a set of candidate profiles into a design.
+
+The following is from [Basic Functions for Supporting an Implementation of Choice Experiments in R](https://www.jstatsoft.org/article/view/v050c02):
+
+> The functions rotation.design and Lma.design have the following three features. (1) While
+the rotation and mix-and-match methods create an unlabeled type of CE design that can
+contain generic attributes in the utility function of the CL model, the LMA method creates
+a labeled type of CE design that can contain both generic attributes and alternative-specific
+attributes: the generic attribute refers to that which is included in all the alternatives; the
+alternative-specific attribute is that which is included in only one alternative. (2) Each method
+depends on an orthogonal main-effect array that is generated using the function oa.design
+in the package DoE.base (Gromping 2012). (3) Each function provides an option by which
+the CE design can be divided into sub-blocks. 
+
+### "rotation" designs
+
+The ```rotaton.design()``` method uses a call to the ```oa.design()``` method from the ```DoE.base``` package to acquire an orthogonal main effects array. These orthogonal arrays are draw from well-known libraries of orthogonal arrays such as [Kuhfeld, W. (2009). Orthogonal arrays.] (http://support.sas.com/techsup/technote/ts723b.pdf). The rotation method then forms choice alternatives by 'rotating' this array by adding a constant to each level of each attribute. In the case of a choice experiment with 2 alternatives per choice task the ```rotation.design()``` method defines the 2nd alternative by just adding 1 factor level to each profile in the 1st alternative.
+
+It is worth pointing out here that [Street, Burgess, and Louviere](https://www.sciencedirect.com/science/article/abs/pii/S0167811605000510) discuss the technique of 'rotation' designs in the context of experimental designs for discrete choice models that always give an optimal design for estimation of main effects:
+
+
+> In particular we describe a construction technique that always gives an optimal or near-optimal design for the estimation of main effects, and gives near-optimal designs for the estimation of main effects plus two-factor interaction effects. In addition the efficiency of any proposed design can be calculated using the results below, thus allowing any specific designs to be compared. The basic idea of the construction technique is simple: start with an OMEP to represent the profiles in the first option in the choice sets. Choose some systematic set of level changes to get from the profiles in the first option in the choice sets to the profiles in the second option in the choice sets, and then choose another
+systematic set of changes to get from the profiles in the first option to the profiles in the third option, and so on. The benefit of this approach is that the nature of the systematic changes required to make the resulting choice sets optimal has been determined for the estimation of main effects. Bunch, Louviere, and Anderson (1996) introduced cyclic or shifted designs, but their designs only work well for estimating main effects, and the numbers of levels for all the attributes must be at least equal to the size of the choice sets. Systematic changes to get near-optimal sets for estimating main effects plus two-factor interaction effects also have been determined (Street et al., 2005, p.462).
+
+
+I'm going to start by using my own call to ```oa.design()``` to generate a candidate set. Recall that our example choice experiment has 3 attributes which all have 3 levels. 
+
+
+```{r}
+# this will retrieve an orthogonal main effects array for an experiment with 3 attributes that vary over 3 levels each
+candidate.set <- oa.design(nlevels=c(3,3,3))
+candidate.set  
+```
+
+One thing I would like to point out in this step: the function ```oa.design()``` can accept an argument ```nruns```. If we omit this argument, as I have done above, the function will chose an orthogonal main effects array from among the possibilities which are the smallest, given the number of attributes and levels.
+
+To see how the argument ```nruns``` affects the set of candidate profiles I will now use ```oa.design()``` to generate the full factorial candidate set:
+
+```{r}
+# this illustrates a full factorial candidate set...note that this code is not assigned to an object, it is just for illustration
+oa.design(nlevels=c(3,3,3),nruns=27)
+```
+
+At this point I have a candidate set of profiles (an orthogonal main effects array) for the choice experiment with 3 attributes each having 3 levels. This candidate set forms the basis for the experimental design. I can pass this array to the ```rotation.design()``` method, which will form choice pairing from the candidate set:
+
+```{r}
+# the key input into the rotation.design function is the "candidate.array". Note that this is the 9 profile orthogonal main effects array called "candidate.set" that we retrieved earlier.
+des1 <- rotation.design(candidate.array = candidate.set,
+                        attribute.names = list(
+  Region = c("Reg_A", "Reg_B", "Reg_C"),
+  Eco = c("Conv.", "More", "Most"),
+  Price = c("1", "1.1", "1.2")),
+  nalternatives = 2, nblocks = 1, row.renames = FALSE,
+  randomize = FALSE)
+```
+
+The first thing to note here is that if we look at the candidate design from the ```des1``` object we can see that it is the same as the orthogonal main effects array that we retrieved from the ```oa.design()``` method:
+
+```{r}
+# orthogonal main effects array from oa.design()
+candidate.set
+# candidate profiles from our rotation.design() call:
+des1$candidate
+
+```
+
+The next thing to note is that the rotational design method for 2 choice alternatives assigns the candidate profiles in the input ```candidate.array``` to the 1st alternative and creates the 2nd alternative by adding a factor level to the profiles in the first alternative. Again, looking at the ```rotation.design()``` object will be informative here:
+
+```{r}
+# print the attribute/level profiles for the choice alternatives
+des1$alternatives
+
+```
+
+Note that the factor levels in alternative 1 above correspond the factor levels of the candidate set where the row name in ```des1$alternatives$alt.1``` corresponds to a row in ```des1$candidate```.
+
+Note also that the factor levels for each row in ```des1$alternatives$alt.2``` are just the factor levels for the corresponding row from ```des1$alternatives$alt.1``` increased by 1 factor level.
+
+### Randomized Pairings
+
+Next, let us examine what happens if we change the ```randomize=``` option to ```TRUE```:
+
+```{r}
+# use the same parameters to generate a new design using rotation.design() but this time
+# randomize the design
+des2 <- rotation.design(candidate.array = candidate.set,
+                        attribute.names = list(
+  Region = c("Reg_A", "Reg_B", "Reg_C"),
+  Eco = c("Conv.", "More", "Most"),
+  Price = c("1", "1.1", "1.2")),
+  nalternatives = 2, nblocks = 1, row.renames = FALSE,
+  randomize = TRUE)
+des2
+```
+
+The main thing to note here is that alternative 2 for each choice pair is no longer a "shifted" version of alternative 1. The profiles in alternative 1 are still the identical profiles in ```candidate``` and the profiles in alternative 2 are still "shifted" versions of alternative 1... but the choice pairs are formed by randomly matching rows from ```candidate``` with rows from the "shifted/rotated" version of ```candidate```.
+
+### Omitting the oa.design() call
+
+We can omit the ```candidate.array``` argument in the ```rotation.design()``` method because ```rotation.design()``` will call to ```oa.design()``` internally to acquire an orthogonal main effects array. Notice in the code below we do not supply the candidate profiles:
+
+```{r}
+
+# support.CE example
+
+# if we remove the seed we will get a different orthogonal main
+#  effects array each time. It is useful to note that rotation.design calls to
+#    oa.design() from the DoE.base() package which is a look function to a table
+#     of orthogonal main effects arrays from Kuhnfield 2009, Orthogonal Arrays
+des3 <- rotation.design(attribute.names = list(
+  Region = c("Reg_A", "Reg_B", "Reg_C"),
+  Eco = c("Conv.", "More", "Most"),
+  Price = c("1", "1.1", "1.2")),
+  nalternatives = 2, nblocks = 1, row.renames = FALSE,
+  randomize = TRUE, seed = 987)
+
+des3
+```
+
+
+### L^MA Designs
+
+L^MA designs are explored in [Louviere and Woodworth 1983](https://journals.sagepub.com/doi/abs/10.1177/002224378302000403?journalCode=mrja) and [Louviere et al 1988](https://www.researchgate.net/profile/Jordan_Louviere/publication/235356400_Conjoint_analysis_modelling_of_stated_preferences_a_review_of_theory_methods_recent_developments_and_external_validity/links/02e7e52b9ee2d69030000000.pdf). From Louviere et al. (1988):
+
+> Louviere and Woodworth (1983) and Louviere (1983, 1984b, 1986) discuss ways of constructing choice experiments from other types of factorial designs. For example if one has *M* alternatives, each with *A* attributes having *L* levels, one can satisfy the independence-of-marginal-probabilities condition by treating each attribute of each alternative as a separate factor in an $L^(MA)$ factorial design. This design generates combinations of levels of the attributes of *M* alternatives so that the attributes of each alternative are independent of one another. 
+
+In the $L^{MA}$ design for our problem we have:
+
+* L = 3 levels
+* M = 2 alternatives
+* A = 3 attributes
+
+In this case, the internal call to ```oa.design()``` will produce an orthogonal main effects array for a candidate profile matrix with $MA$=6 columns: 
+
+```{r}
+des.lma <- Lma.design(candidate.array = NULL, 
+  attribute.names = list(
+  Region = c("Reg_A", "Reg_B", "Reg_C"),
+  Eco = c("Conv.", "More", "Most"),
+  Price = c("1", "1.1", "1.2")),
+  nalternatives = 2, nblocks = 1, row.renames = FALSE, seed=987)
+
+des.lma
+```
+
+From the output above, we can see that row #1 of the candidate design has the factor levels [2 3 1 2 3 1]. If we examine the row in ```des.lma$alternatives$alt.1``` with ```row.name(des.lma$alternatives$alt.1)=1``` (the 10th row), we can see that it has the factor levels [2 3 1]. And if we find the profile for the 2nd alternative where ```row.name(des.lma$alternatives$alt.1)=1``` (again the 10th row), we see that it also has the factor levels [2 3 1]. 
+
+One final flourish here. This design has 18 choice paris. If we suspect that 18 choice tasks is too much for any one respondent we could block the design as follows:
+
+```{r}
+des.lma2 <- Lma.design(candidate.array = NULL, 
+  attribute.names = list(
+  Region = c("Reg_A", "Reg_B", "Reg_C"),
+  Eco = c("Conv.", "More", "Most"),
+  Price = c("1", "1.1", "1.2")),
+  nalternatives = 2, nblocks = 3, row.renames = FALSE, seed=987)
+
+des.lma2
+
+```
+
+
+## Full Factorial Design
+
+We could generate a full factorial design by using the ```fac.design()``` method from ```DoE.base```.
+
+```{r}
+full.fac.cand <- fac.design(nlevels=c(3,3,3))
+full.fac.cand
+```
+
+At this point I want to be honest about the fact that I'm pretty hazy on what one *should* do with a full factorial design. I know that one *could* feed this candidate set to the ```rotation.design()``` or ```Lma.design()``` method. But I have no idea if this is something that would even make sense to do.
+
+```{r}
+rotation.design(candidate.array = candidate.set, attribute.names = list(
+     Region = c("Reg_A", "Reg_B", "Reg_C"),
+     Eco = c("Conv.", "More", "Most"),
+     Price = c("1", "1.1", "1.2")),
+     nalternatives = 2, nblocks = 1, row.renames = FALSE,
+     randomize = FALSE)
+
+```
+
+## Convenience Functions {.tabset}
+
+There are a number of other attractive feature of the ```support.CEs``` package. Two functions that can be particularly helpful in designing discrete choice experiments are:
+
+1. ```questionnaire()```, and
+2. ```make.design.matrix()```
+
+### questionnaire
+
+The ```questionnaire()``` function transforms the list object created by ```rotation.design()``` or ```Lma.design()``` to a questionnaire format. Honestly, I can't see this function adding a lot of value to the survey development process.
+
+```{r}
+questionnaire(choice.experiment.design=des3)
+```
+
+### make.design.matrix
+
+The ```make.design.matrix()``` function organizes the results of ```rotation.design()``` or ```Lma.design()``` into a data frame format conducive to conditional logit estimation.
+
+```{r}
+make.design.matrix(choice.experiment.design = des3,
+   optout = TRUE, categorical.attributes = c("Region", "Eco"),
+   continuous.attributes = c("Price"), unlabeled = TRUE)
+
+```
+
+## Estimation of a DCM
+
+The ```support.CEs``` package includes an example dataset for the 3 attribute/3 level choice experiment that we have been working with here. This part will be pretty quick and dirty, but since it's available within the package, I wanted to run through it quickly.
+
+The dataset ```syn.res1``` goes with the choice experiment contained in the object ```des1```. Recall that ```des1``` was the fractional factorial design with 9 choice tasks and 2 alternatives per choice task.  
+
+To start, let's just look at what the example data set looks like:
+
+```{r}
+data(syn.res1)
+head(syn.res1)
+tail(syn.res1)
+```
+
+So it looks like we have 100 responses to the 9 questions. The columns ```q1-q9``` indicate which alternative was chosen for each question, the field ```ID``` corresponds to respondents, ```BLOCK``` is an identifier for the BLOCK of the design, and ```F``` is an indicator for whether the respondent is female or not. 
+
+We can use the ```make.design.matrix()``` function discussed earlier to organize the choice expiriment in a way that is conducive to discrete choice modeling:
+
+```{r}
+ desmat1 <- make.design.matrix(choice.experiment.design = des1,
+   optout = TRUE, categorical.attributes = c("Region", "Eco"),
+   continuous.attributes = c("Price"), unlabeled = TRUE)
+
+head(desmat1)
+
+```
+
+Here I should point out that the ```make.design.matrix()``` has added a *status quo* or *non of the above* option. From the data frame above we can see that a 3rd alternative has been added to each ```desmat1$QES``` that has 0 for all attribute levels.
+
+The ```support.CEs``` package includes another convenience function called ```make.dataset()``` that will merge survey responses with the experimental design:
+
+```{r}
+ dataset1 <- make.dataset(respondent.dataset = syn.res1,
+    choice.indicators =
+    c("q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9"),
+    design.matrix = desmat1)
+head(dataset1)
+```
+
+This dataset can be passed to the ```clogit()``` method from the ```survival``` package. In the following code we illustrate the use of the ```clogit()``` function to estimate the following indirect utility function for our choice experiment:
+
+$V_{in} = ASC_i + \beta_{RB}REG_B_{in} + \beta_{RC}REG_C_{in} + \beta_{more}MORE_{in} + \beta_{most}MOST_{in} + \beta_{more,F}MORE_{in}F_n + \beta_{most,F}MOST_{in}F_n + \beta_pPRICE_{in}$
+
+```{r}
+clogout1 <- clogit(RES ~ ASC + Reg_B + Reg_C + More + Most +
++ More:F + Most:F + Price + strata(STR), data = dataset1)
+clogout1
+```
+
+An interesting fact about the ```clogit()``` function from the ```survival``` package is this nugget that I have pulled directly from the *Details* section of the help menu:
+
+> it turns out that the loglikelihood for a conditional logistic regression model = loglik from a Cox model with a particular data structure. Proving this is a nice homework exercise for a PhD statistics class; not too hard, but the fact that it is true is surprising.
+
+> When a well tested Cox model routine is available many packages use this ‘trick’ rather than writing a new software routine from scratch, and this is what the clogit routine does. In detail, a stratified Cox model with each case/control group assigned to its own stratum, time set to a constant, status of 1=case 0=control, and using the exact partial likelihood has the same likelihood formula as a conditional logistic regression. The clogit routine creates the necessary dummy variable of times (all 1) and the strata, then calls coxph.
+
+If we take a look at how the sausage is made inside the ```clogit``` factory we see that this function is basically just a wrapper to the [coxph()](https://www.rdocumentation.org/packages/survival/versions/3.2-3/topics/coxph) method inside the ```survival```. Here is the source code for the ```clogit()``` function with some annotations from me:
+
+```{r}
+
+function (formula, data, weights, subset, na.action, method = c("exact", 
+    "approximate", "efron", "breslow"), ...) 
+{
+    Call <- match.call()
+    
+    # This part creates a call to model.frame() which contains the formula (required)
+    #  and the data argument (if present).
+    #  It's only job is to find out the number of rows in the data
+    #  before subset or na.action are applied.
+    indx <- match(c("formula", "data"), names(Call), nomatch = 0)
+    if (indx[1] == 0) 
+        stop("A formula argument is required")
+    mf <- Call[c(1, indx)]
+    mf[[1L]] <- quote(stats::model.frame)
+    mf$na.action <- "na.pass"
+    nrows <- NROW(eval(mf, parent.frame()))
+    
+    # This part builds a call to coxph with the formula fixed up to have
+    #  the left hand side in the somewhat funky way that the cox proportional hazard model
+    #   wants it.
+    coxcall <- Call
+    
+    # coxph is the name of the function that executes the Cox Proportional Hazard Regression model.
+    coxcall[[1]] <- as.name("coxph")
+    newformula <- formula
+    newformula[[2]] <- substitute(Surv(rep(1, nn), case), list(case = formula[[2]], 
+        nn = nrows))
+    environment(newformula) <- environment(formula)
+    coxcall$formula <- newformula
+    method <- match.arg(method)
+    
+    # This part sets the default method, with "approximate" matched to "breslow"
+    coxcall$method <- switch(method, exact = "exact", efron = "efron", 
+        "breslow")
+    
+    
+    if (method == "exact") {
+        if (missing(data)) 
+            temp <- terms(formula, special = "cluster")
+        else temp <- terms(formula, special = "cluster", data = data)
+        if (!is.null(attr(temp, "specials")$cluster) && method == 
+            "exact") 
+            stop("robust variance plus the exact method is not supported")
+        if (!is.null(coxcall$weights)) {
+            coxcall$weights <- NULL
+            warning("weights ignored: not possible for the exact method")
+        }
+    }
+    coxcall <- eval(coxcall, sys.frame(sys.parent()))
+    coxcall$userCall <- sys.call()
+    class(coxcall) <- c("clogit", "coxph")
+    coxcall
+}
+
+```
+
+
+
+## Resources
+
+[Street, D.J., L. Burgess, and J. Louviere. 2005. Quick and Easy Choice Sets: Constructing Optimal and Nearly Optimal Stated Choice Experiments. International Journal of Marketing Research, v.22(4)](https://www.sciencedirect.com/science/article/abs/pii/S0167811605000510)
+
+[Lusk, J.L., and F.B. Norwood. 2005. Effect of Experimental Design on Choice Based Conjoint Valuation Estimates. American Journal of Agricultural Economics, v.87(3)](https://www.jstor.org/stable/3697912?seq=1)
+
+[Ferrini, S., and R. Scarpa. 2007. Designs with a-priori information for non-market valuation with choice experiments: A Monte Carlo Study. Journal of Environmental Economics and Management, v.53(3)](https://www.sciencedirect.com/science/article/abs/pii/S009506960700006X)
+
+[Kuhfeld, W. 2010. Marketing Research Methods in SAS](http://support.sas.com/techsup/technote/mr2010.pdf)
+
+
