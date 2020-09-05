@@ -1,0 +1,23 @@
+---
+title: "Experimental-Design-for-DCMs-Optimal-Designs"
+author: "aaron mamula"
+date: "9/4/2020"
+output: html_document
+---
+
+The literature on optimal and efficient designs for choice experiments steams from what I understand to be a single fundamental observation:
+
+The efficiency of an experimental design applied to a choice model is related to the covariance matrix of the estimated model parameters. In a linear model this covariance matrix would be a function only of the attribute levels and not the parameters themeselves. However, in a non-linear model (such as a multinomial logit or mixed logit), this covariance matrix is a function of parameter values. Therefore an efficient design for a non-linear model depends on the parameters of the underlying model.
+
+This is stated more elegantly in the [idefix package companion Vignette: Generating Optimal Designs for Discrete Choice Experiments in R: the idefix package](https://lirias.kuleuven.be/retrieve/548738) 
+
+> Optimal designs maximize the expected Fisher information. For choice designs, this information depends on the parameters of the assumed choice model. Consequently, the efficiency of a choice design is related to the accuracy of the guess of the true parameters before conducting the experiment. In order to reduce this sensitivity, Bayesian efficient designs were developed.
+
+
+## Resources
+
+[This JEEM Article: Designs with *a priori* information for non-market valuation with choice experiments: A Monte Carlo study](https://www.sciencedirect.com/science/article/abs/pii/S009506960700006X)
+
+[Kessels, R., P. Goos, and M. Vanderbroek. 2006. A Comparison of Criteria to Design Efficient Choice Experiments. Journal of Marketing Research, v.43(3)](http://www.jstor.org/stable/30162415)
+
+
