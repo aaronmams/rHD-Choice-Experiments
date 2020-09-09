@@ -5,13 +5,185 @@ date: "9/4/2020"
 output: html_document
 ---
 
+
+```{r}
+library(idefix)
+
+```
+
+
+
 The literature on optimal and efficient designs for choice experiments steams from what I understand to be a single fundamental observation:
 
-The efficiency of an experimental design applied to a choice model is related to the covariance matrix of the estimated model parameters. In a linear model this covariance matrix would be a function only of the attribute levels and not the parameters themeselves. However, in a non-linear model (such as a multinomial logit or mixed logit), this covariance matrix is a function of parameter values. Therefore an efficient design for a non-linear model depends on the parameters of the underlying model.
+The efficiency of an experimental design applied to a choice model is related to the covariance matrix of the estimated model parameters. In a linear model this covariance matrix would be a function only of the attribute levels and not the parameters themselves. However, in a non-linear model (such as a multinomial logit or mixed logit), this covariance matrix is a function of parameter values. Therefore an efficient design for a non-linear model depends on the parameters of the underlying model.
 
 This is stated more elegantly in the [idefix package companion Vignette: Generating Optimal Designs for Discrete Choice Experiments in R: the idefix package](https://lirias.kuleuven.be/retrieve/548738) 
 
 > Optimal designs maximize the expected Fisher information. For choice designs, this information depends on the parameters of the assumed choice model. Consequently, the efficiency of a choice design is related to the accuracy of the guess of the true parameters before conducting the experiment. In order to reduce this sensitivity, Bayesian efficient designs were developed.
+
+
+## D-optimal Designs
+
+This part is more-or-less copied from [Generating Optimal Designs for Discrete Choice Experiments in R: the idefix package](https://lirias.kuleuven.be/retrieve/548738). I'm providing it as a kind of 'enhanced background' but, as I've noted multiple times, this is not an area of research that I'm terribly familiar with. If you are interested in optimal experimental design for choice experiments I highly suggest consulting one of the peer-reviewed source in the ```Resources``` section.
+
+The multinomial logit model is classically derived from a utility function defined for $N$ individuals choosing from among $K$ alternatives in $S$ choice sets such that individual $n$ chooses alternative $k$ in choice set $s$ to maximize:
+
+$U_{ksn} = x^T_{ksn}\beta + \epsilon_{ksn}$
+
+where $x^T_{ksn}$ contains the observable characteristics of the individual and choice alternatives.
+
+Making some well-known assumptions about the properties of the error term $\epsilon_{ksn}$ allows one to express the probability that individual $n$ selects alternative $k$ from choice set $s$ as,
+
+$p_{ksn}(\beta)=\frac{exp(x^T_{ksn}\beta)}{\sum_{i}^K(x^T_{isn}\beta)}$
+
+Per the [idefix documentation](https://lirias.kuleuven.be/retrieve/548738):
+
+> The more statistically efficient a design is, the smaller the confidence ellipsoids around the parameter estimates of a model will be, given a certain sample size. The information a design contains, given a choice model, can be derived from the likelihood L of that model by calculating the expected Fisher information matrix
+
+$I_{FIM}=E(\frac{\partial^2L}{\partial\beta\partial\beta^T})$
+
+> Several efficiency measures have been proposed based on the information matrix, among which the D-efficiency has become the standard approach (Kessels et al. 2006; Rose and Bliemer 2014). A D-optimal design approach maximizes the determinant of the information matrix, therefore minimizing the generalized variance of the parameter estimates. The criterion is scaled to the power 1/p, with p the number of parameters the model contains:
+
+$\Omega = I_{FIM}(\beta|X^T)$
+
+$D-error = det(\Omega^{1/p})$
+
+> In order to calculate the D-error of a design, one must assume a model and parameter values. Since there is uncertainty about the parameter values, a prior distribution π(β) can be defined on the preference parameters. In this case the expected D-error is minimized over the prior preference distribution and is referred to as the DB-error:
+
+$D_{B} - error = \int det(\Omega^{1/p}\pi\beta \partial \beta)$
+
+>To find the design that minimizes such criteria, different algorithms have been proposed (see Cook and
+Nachtsheim 1980, for an overview). We choose to implement both the modified Fedorov algorithm,
+which was adapted from the classical Fedorov exchange algorithm (Fedorov 1972), as well as a coordinate exchange algorithm. The former swaps profiles from an initial design matrix with candidate
+profiles in order to minimize the D(B)-error. The latter changes individual attribute levels in order to
+optimize the design. For more details see Modfed and CEA functions in Section 3.3. 
+
+### D(B) Optimal Design Example {.tabset}
+
+### Profiles
+
+```{r}
+# define the attributes and levels
+at.lvls <- c(3, 3, 3)
+c.type <- c("D", "D", "D")
+cs <- Profiles(lvls = at.lvls, coding = c.type)
+
+cs
+```
+
+### Modified Federov Algorithm
+
+Using the ```idefix``` package, we can pass the set of candidate profiles as an argument to the [Modfed()](https://rdrr.io/cran/idefix/man/Modfed.html). This function uses a Modified Federov Alogrithm to generate a design that optimizes D(B)-efficiency given a set of parameters. 
+
+The function requires that we specify prior distributions for the underlying model parameters. In this case, 3 attributes defined using dummy variable encoding means we have 6 model parameters. In the code chunk below I generate prior distributions for these parameters by taking draws from a multivariate normal distribution:
+
+```{r}
+
+mu <- c(-0.4, -1, -2, -1, 0.2, 1)
+sigma <- diag(length(mu))
+set.seed(123)
+
+# column i in the object M is a vector containing n draws from a normal distribution with mean mu[i] and
+# variance sigma[i,i]
+M <- MASS::mvrnorm(n = 500, mu = mu, Sigma = sigma)
+```
+
+The ```Modfed()``` function also accepts the inputs:
+
+* cand.set: the set of candidate profiles
+* n.sets: the number of choice tasks
+* n.alts: the number of alternatives in each choice task
+* alt.cte: a vector indicating whether alternative specific constants should be included
+* par.draws: a matrix of values defining the prior distribution of the underlying model parameters
+
+In the code chunk below we generate a design for the profiles defined in the object ```cs``` with 8 choice tasks and 2 alternatives per choice task. Altnerative specific constants are not included and the prior distribution of model parameters is defined by the matrix ```M```.
+
+```{r}
+D <- Modfed(cand.set = cs, n.sets = 8, n.alts = 2,
+      alt.cte = c(0, 0), par.draws = M)
+D
+
+```
+
+### Adding Alt-C
+
+One potentially important extension to the experimental design code from the previous section is the addition of alternative specific constants. 
+
+Again, from the package documentation:
+
+>For some discrete choice experiments, a no choice alternative is desired. This is usually an alternative containing one alternative specific constant and zero values for all other attribute levels. If such an alternative should be present, the no.choice argument can be set to TRUE. When this is the case, the design will be optimised given that the last alternative of each choice set is a no choice alternative. Note that when no.choice = TRUE, alt.cte[n.alts] should be 1, since the no choice alternative has an alternative specific constant.
+
+We can add a no choice alternative with an alternative specific constant to our design by setting the inputs as described above.
+
+```{r}
+set.seed(123)
+# specify dummy encoding for our attributes
+code = c("D", "D", "D")
+# generate the candidate profiles
+cs <- Profiles(lvls = c(3, 3, 3), coding = code )
+
+# specify one alternative specific constant for our "no choice" alternative
+alt.cte <- c(0, 0, 1)
+
+# specify the prior means for our parameter values
+m <- c(0.1, 1.5, 1.2, 0.8, -0.5, 1, 1)
+
+# specify the prior variance
+v <- diag(length(m))
+
+# define the prior distribution of our parameters
+ps <- MASS::mvrnorm(n = 500, mu = m, Sigma = v)
+
+# when including alternative specific constants the priors must be entered into the Modfed function
+# separately
+ps <- list(ps[, 1], ps[, 2:7])
+
+# use the Modfed() function to generate an optimal design
+D.nc <- Modfed(cand.set = cs, n.sets = 10, n.alts = 3,
+ alt.cte = alt.cte, par.draws = ps, no.choice = TRUE,
+best = TRUE)
+
+D.nc
+```
+
+## Comparing designs
+
+The ```Modfed()``` function accepts the input ```best=``` which we can toggle on or off depending on whether we want the function to just return the optimal design or if we want to look at all the designs that were evaluated.
+
+Here I'm going to use the same options from the last section with the singular exception of the option ```best=FALSE```. The results illustrate how we can retrieve information about the designs chosen 
+
+```{r}
+set.seed(123)
+# specify dummy encoding for our attributes
+code = c("D", "D", "D")
+# generate the candidate profiles
+cs <- Profiles(lvls = c(3, 3, 3), coding = code )
+
+# specify one alternative specific constant for our "no choice" alternative
+alt.cte <- c(0, 0, 1)
+
+# specify the prior means for our parameter values
+m <- c(0.1, 1.5, 1.2, 0.8, -0.5, 1, 1)
+
+# specify the prior variance
+v <- diag(length(m))
+
+# define the prior distribution of our parameters
+ps <- MASS::mvrnorm(n = 500, mu = m, Sigma = v)
+
+# when including alternative specific constants the priors must be entered into the Modfed function
+# separately
+ps <- list(ps[, 1], ps[, 2:7])
+
+# use the Modfed() function to generate an optimal design
+D.nc <- Modfed(cand.set = cs, n.sets = 10, n.alts = 3,
+ alt.cte = alt.cte, par.draws = ps, no.choice = TRUE,
+best = FALSE)
+
+D.nc
+
+```
+
 
 
 ## Resources

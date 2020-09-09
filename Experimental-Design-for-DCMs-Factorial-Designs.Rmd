@@ -311,7 +311,7 @@ head(dataset1)
 
 This dataset can be passed to the ```clogit()``` method from the ```survival``` package. In the following code we illustrate the use of the ```clogit()``` function to estimate the following indirect utility function for our choice experiment:
 
-$V_{in} = ASC_i + \beta_{RB}REG_B_{in} + \beta_{RC}REG_C_{in} + \beta_{more}MORE_{in} + \beta_{most}MOST_{in} + \beta_{more,F}MORE_{in}F_n + \beta_{most,F}MOST_{in}F_n + \beta_pPRICE_{in}$
+$V_{in} = ASC_i + \beta_{RB} REGB_{in} + \beta_{RC} REGC_{in} + \beta_{more} MORE_{in} + \beta_{most} MOST_{in}+ \beta_{more,F} MORE_{in} F_n + \beta_{most,F} MOST_{in} F_n + \beta_p PRICE_{in}$
 
 ```{r}
 clogout1 <- clogit(RES ~ ASC + Reg_B + Reg_C + More + Most +
