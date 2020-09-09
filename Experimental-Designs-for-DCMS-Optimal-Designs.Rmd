@@ -5,22 +5,31 @@ date: "9/4/2020"
 output: html_document
 ---
 
+# {.tabset .tabset-fade .tabset-pills}
+
+## Executive Summary
+
+Here I provide some very simple illustrations of a few functions contained in the [idefix package for R](https://cran.r-project.org/web/packages/idefix/index.html). This package allows generation of efficient experimental design for discrete choice experiments. 
+
+The main focus of this markdown is illustrating the use of the [Modfed()](https://rdrr.io/cran/idefix/man/Modfed.html) function in ```idefix```  to generate a Bayesian optimal experimental design. The example I provide here is really simple and borrows heavily from sample code contained in [ the idefix package companion Vignette: Generating Optimal Designs for Discrete Choice Experiments in R: the idefix package](https://lirias.kuleuven.be/retrieve/548738). 
+
+## Packages and Dependencies
 
 ```{r}
+library(MASS)
 library(idefix)
 
 ```
 
+## Background
 
-
-The literature on optimal and efficient designs for choice experiments steams from what I understand to be a single fundamental observation:
+The literature on optimal and efficient designs for choice experiments steams from what I understand to be a fundamental observation:
 
 The efficiency of an experimental design applied to a choice model is related to the covariance matrix of the estimated model parameters. In a linear model this covariance matrix would be a function only of the attribute levels and not the parameters themselves. However, in a non-linear model (such as a multinomial logit or mixed logit), this covariance matrix is a function of parameter values. Therefore an efficient design for a non-linear model depends on the parameters of the underlying model.
 
 This is stated more elegantly in the [idefix package companion Vignette: Generating Optimal Designs for Discrete Choice Experiments in R: the idefix package](https://lirias.kuleuven.be/retrieve/548738) 
 
 > Optimal designs maximize the expected Fisher information. For choice designs, this information depends on the parameters of the assumed choice model. Consequently, the efficiency of a choice design is related to the accuracy of the guess of the true parameters before conducting the experiment. In order to reduce this sensitivity, Bayesian efficient designs were developed.
-
 
 ## D-optimal Designs
 
@@ -48,7 +57,7 @@ $\Omega = I_{FIM}(\beta|X^T)$
 
 $D-error = det(\Omega^{1/p})$
 
-> In order to calculate the D-error of a design, one must assume a model and parameter values. Since there is uncertainty about the parameter values, a prior distribution π(β) can be defined on the preference parameters. In this case the expected D-error is minimized over the prior preference distribution and is referred to as the DB-error:
+> In order to calculate the D-error of a design, one must assume a model and parameter values. Since there is uncertainty about the parameter values, a prior distribution $\pi(\beta)$ can be defined on the preference parameters. In this case the expected D-error is minimized over the prior preference distribution and is referred to as the DB-error:
 
 $D_{B} - error = \int det(\Omega^{1/p}\pi\beta \partial \beta)$
 
@@ -58,9 +67,18 @@ which was adapted from the classical Fedorov exchange algorithm (Fedorov 1972), 
 profiles in order to minimize the D(B)-error. The latter changes individual attribute levels in order to
 optimize the design. For more details see Modfed and CEA functions in Section 3.3. 
 
-### D(B) Optimal Design Example {.tabset}
+## D(B) Optimal Design Example {.tabset}
+
+Here I provide a simple example of using the [Modfed() function](https://rdrr.io/cran/idefix/man/Modfed.html) from the ```idefix``` package to generate a $D(B)$ optimal experimental design. The example somewhat follows my example problem from [Experimental-Design-for-DCMs-Factorial-Designs](https://github.com/aaronmams/rHD-Choice-Experiments/blob/master/Experimental-Design-for-DCMs-Factorial-Designs.Rmd) in that I assume a choice experiment aimed at understanding preferences for 3 attributes defined over 3 levels each. The rest of the inputs to the example (number of choice sets, number of choice tasks per choice set, prior expectations for underlying model parameters) have been chosen in a pretty ad-hoc manner. 
 
 ### Profiles
+
+According to the documentation, the first argument provided to the ```Modfed()``` function should be the candidate set of profiles for the design. This is the universe of possible attribute/level combinations that the algorithm will attempt to combine (given inputs for number of choice sets and number of choice tasks per set) in order to maximize the efficieny criteria (here D(B) efficiency). Again, from the [package documentation](https://lirias.kuleuven.be/retrieve/548738): 
+
+> The algorithm will swap profiles from cand.set with profiles from an initial design in order to
+maximize the D(B)-efficiency.
+
+The function ```Profiles()``` will generate all possible profiles for a given number of attributes and levels. In the code below I specify dummy encoding for the profiles. Effect encoding is also possible. In this case one would change the ```coding``` argument to ```c("E","E","E")```:
 
 ```{r}
 # define the attributes and levels
@@ -71,11 +89,15 @@ cs <- Profiles(lvls = at.lvls, coding = c.type)
 cs
 ```
 
-### Modified Federov Algorithm
+### Setting the priors
 
-Using the ```idefix``` package, we can pass the set of candidate profiles as an argument to the [Modfed()](https://rdrr.io/cran/idefix/man/Modfed.html). This function uses a Modified Federov Alogrithm to generate a design that optimizes D(B)-efficiency given a set of parameters. 
+The ```Modfed()``` function requires that we specify prior distributions for the underlying model parameters. In this case, 3 attributes defined using dummy variable encoding means we have 6 main effects parameters. The efficiency of the design is influenced by the parameters of the underlying model. Referring once again to the [package documentation](https://lirias.kuleuven.be/retrieve/548738):
 
-The function requires that we specify prior distributions for the underlying model parameters. In this case, 3 attributes defined using dummy variable encoding means we have 6 model parameters. In the code chunk below I generate prior distributions for these parameters by taking draws from a multivariate normal distribution:
+> In order to calculate the D-error of a design, one must assume a model and parameter values. Since there is uncertainty about the parameter values, a prior distribution $\pi(\beta)$ can be defined on the preference parameters. In this case the expected D-error is minimized over the prior preference distribution and is referred to as the DB-error
+
+$D_{B}-error = \int det(\Omega^{1/p})\pi\beta\partial\beta$
+
+In the code chunk below I generate prior distributions for these parameters by taking draws from a multivariate normal distribution:
 
 ```{r}
 
@@ -87,6 +109,8 @@ set.seed(123)
 # variance sigma[i,i]
 M <- MASS::mvrnorm(n = 500, mu = mu, Sigma = sigma)
 ```
+
+### Modfed
 
 The ```Modfed()``` function also accepts the inputs:
 
@@ -150,7 +174,9 @@ D.nc
 
 The ```Modfed()``` function accepts the input ```best=``` which we can toggle on or off depending on whether we want the function to just return the optimal design or if we want to look at all the designs that were evaluated.
 
-Here I'm going to use the same options from the last section with the singular exception of the option ```best=FALSE```. The results illustrate how we can retrieve information about the designs chosen 
+Here I'm going to use the same options from the last section with the singular exception of the option ```best=FALSE```. The results illustrate how we can retrieve information about the designs chosen.
+
+It is also worth noting that ```Modfed``` function can accept the arguments ```start.des``` and ```n.start```. If these arguments are not provided, the algorithm will default to choosing 12 random initial starting designs. Then, for each of these starting designs, the alogrithm will swap profiles with profiles from the candidate set until the D(B) error is minimized.
 
 ```{r}
 set.seed(123)
@@ -188,8 +214,12 @@ D.nc
 
 ## Resources
 
-[This JEEM Article: Designs with *a priori* information for non-market valuation with choice experiments: A Monte Carlo study](https://www.sciencedirect.com/science/article/abs/pii/S009506960700006X)
+[Designs with *a priori* information for non-market valuation with choice experiments: A Monte Carlo study, *Journal of Environmental Economics and Management*](https://www.sciencedirect.com/science/article/abs/pii/S009506960700006X)
 
 [Kessels, R., P. Goos, and M. Vanderbroek. 2006. A Comparison of Criteria to Design Efficient Choice Experiments. Journal of Marketing Research, v.43(3)](http://www.jstor.org/stable/30162415)
 
+[Kessels, R., B. Jones, and P.Goos. 2011. Bayesian Optimal Designs for Discrete Choice Experiments with Partial Profiles. *Journal of Choice Modeling*, v.4(3)](https://www.sciencedirect.com/science/article/pii/S1755534513700423)
 
+[Bayesian Optimal Design using Approximate Coordinate Exchange: the AceBayes Package in R](https://cran.r-project.org/web/packages/acebayes/vignettes/acebayes.pdf)
+
+[Meyerhoff, J., and U. Liebe. 2009. Status Quo Effect in Choice Experiments: Empirical Evidence on Attitudes and Choice Task Complexity. *Land Economics*, v.85(3) ](http://le.uwpress.org/content/85/3/515.short?casa_token=PmWeK0nFMB0AAAAA:0LIK21HQiL_DTdjb4kz__VNmGVPUiVVfLKwbuZ5Ia22wk1qRT40bGqgVJfhwqM-j6glVAVA0BQ0)
