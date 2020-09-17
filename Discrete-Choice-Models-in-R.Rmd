@@ -1,0 +1,356 @@
+---
+title: "Discrete-Choice-Models-in-R"
+author: "aaron mamula"
+date: "9/9/2020"
+output: html_document
+---
+
+
+# {.tabset .tabset-fade .tabset-pills}
+
+## Summary
+
+This module illustrates the estimation of a few well-worn discrete choice models in R. More specifically, we do the following:
+
+* estimate a binary logit model with the ```glm``` package
+* estimate a few popular flavors of multinomial-type logit models using the ```mlogit``` package
+* estimate a random parameters logit model using the ```mlogit``` package.
+
+I will state here (probably for like the 1,000th time) that I am not super knowledgable in the domain of limited dependent variable econometrics. For this reason, I have tried to keep these examples very simple and I have tried to stick to estimations that are well documented in open sources. 
+
+
+## Background
+
+A great starting place for resources on discrete choice modeling in R is the [mlogit package repository](https://cran.r-project.org/web/packages/mlogit/). This repository comes with several vignettes that provide R code to answer questions from Kenneth Train's seminal book [Discrete Choice Methods with Simulation](https://www.cambridge.org/core/books/discrete-choice-methods-with-simulation/49CABD00F3DDDA088A8FBFAAAD7E9546). It is worth noting here that Dr. Train provides a link to the ```mlogit``` package on his [own website](https://eml.berkeley.edu/~train/software.html), an endorsement which may give some users a sense of comfort.
+
+## Packages and Dependencies
+
+This module uses the following packages:
+
+```{r}
+library(ISLR)
+library(mlogit) #
+library(dfidx) # companion package to mlogit that contains data management functions
+library(dplyr)
+library(survival)
+```
+
+All data dependencies are loaded from the packages and libraries.
+
+
+## logit with glm
+
+This example comes from the book [Introduction to Statistical Learning by Gareth James, Daniela Witten, Trevor Hastie and Rob Tibshirani](http://faculty.marshall.usc.edu/gareth-james/ISL/). The authors also wrote an R package as a companion to the book: ISLR. The ```ISLR`` package contains a simulated dataset on credit card default that I will use here:
+
+```{r}
+default <- as_tibble(ISLR::Default)
+
+```
+
+There's plenty we could do here in the way of data exploration and model set-up but I'd like to keep this concise. I'll just point out that ```default``` is a data frame with 10,000 observations with a binary (Yes/No) variable called ```default``` indicating whether the individual defaulted on the credit card debt or not. Also include in the data frame are the fields:
+
+* student: a binary (Yes/No) variable 
+* balance: a continuous variable, the balance of the credit card debt
+* income: a continous variable, the income of the individual
+
+With these 4 fields we can estimate a simple binary response (logit) model in R as follows:
+
+```{r}
+logit <- glm(default ~ student + balance + income, data=default, family="binomial")
+summary(logit)
+```
+
+Without getting too far into the weeds on this, the ```glm()``` method comes from the terminology 'Generalized Linear Model.' This terminology reflects the fact that binary logistic regression can be expressed as a generalized linear model where the link and variance functions are derived from an assumption that the response variable $Y_i \sim Binomial(n_i,p_i)$. 
+
+Interested readers can find tons of free open source GLM resources on the world wide interwebs...for a more rigorous theoretical treatment see the original resource by McCullah and Nelder, [Generalized Linear Models](http://www.utstat.toronto.edu/~brunner/oldclass/2201s11/readings/glmbook.pdf). 
+
+
+## MNL with mlogit {.tabset}
+
+This illustration comes directly from the [1st companion Vignette to the mlogit package](https://cran.r-project.org/web/packages/mlogit/vignettes/e1mlogit.html). 
+
+
+### Data
+
+The ```mlogit``` package includes the ```Heating``` data set from Ken Train's book [Discrete Choice Methods with Simulation](https://eml.berkeley.edu/books/choice2.html). The data set is described pretty thoroughly [here](https://cran.r-project.org/web/packages/mlogit/vignettes/e1mlogit.html).
+
+
+```{r}
+data("Heating", package = "mlogit")
+head(Heating)
+```
+### Data Set-up
+
+The estimation functions in the ```mlogit``` package require a rather specialized data set-up. One reason for this is that a models often contain explanatory variables that vary by individual and/or explanatory variables that vary by choice alternative. Many of the estimation functions in the ```mlogit``` package treat these covariates differently and the estimation routines need to know which variable are individual-specific and which are alternative specific.
+
+To do this the ```mlogit``` package author has written a supporting package called [dfidx](https://cran.r-project.org/web/packages/dfidx/vignettes/dfidx.html) which contains functions to help prepare data for the estimation functions in ```mlogit```. 
+
+Here it is also worth noting that the ```mlogit``` package contains a data preparation function called [mlogit.data](https://www.rdocumentation.org/packages/mlogit/versions/1.1-0/topics/mlogit-deprecated). However, according to the package author, this function is depricated and practicioners should use the ```dfidx()``` function instead.
+
+So let's look at what ```dfidx``` does:
+
+```{r}
+H <- dfidx(Heating, choice = "depvar", varying = c(3:12))
+head(H)
+```
+
+Notice that the original data frame ```Heating``` had a single row for each individual. The new ```H``` data frame has 5 rows for each individual. For each unique value of ```idcase``` there is an observation for the field ```depvar``` which is TRUE if that alternative was chosen by that individual and FALSE if not. 
+
+To be a bit more specific, each ```idcase``` field corresponds to a single-family household that selects between 5 types of home heating systems: gc (gas central), gr (gas room), ec (electric central), er (electric room), and hp (heat pump). Household 1 (```idcase=1```) has a "gas central" heating system so the ```depvar``` with ```idcase=1``` and ```id2=gc``` is TRUE. The remaining rows of ```depvar``` for ```idcase=1``` are FALSE.
+
+### MNL Estimation
+
+An important thing to note when using the ```mlogit``` package is that many discrete choice models are comprised of alternative specific variables and individual specific variables. The ```mlogit()``` function uses a formula class called [mFormula](https://www.rdocumentation.org/packages/mlogit/versions/1.0-1/topics/mFormula) which partitions the estimation formula into alternative and individual specific components. 
+
+Specifically, from the ```mFormula``` documentation:
+
+> A mFormula is a formula for which the right hand side may contain three parts: the first one contains the alternative specific variables with generic coefficient, i.e. a unique coefficient for all the alternatives ; the second one contains the individual specific variables for which one coefficient is estimated for all the alternatives except one of them ; the third one contains the alternative specific variables with alternative specific coefficients. The different parts are separeted by a | sign. If a standard formula is writen, it is assumed that there are only alternative specific variables with generic coefficients.
+
+A [second Vignette from the mlogit package](https://cran.r-project.org/web/packages/mlogit/vignettes/c2.formula.data.html) provides more discussion on alternative and individual specific covariates and how to use in the context of the ```mlogit``` package.
+
+A simple multinomial logit using only individual specific variables can be estimated as follows:
+
+```{r}
+# a "pure" multinomial logit
+m <- mlogit(depvar ~ 0 | income, H)
+summary(m)
+```
+
+At this point I should mention that I don't know how universal the nomenclature used in the ```mlogit``` package is. Specifically, according to package documentation, three unique flavors of discrete choice model can all be estimated using the ```mlogit()``` function.
+
+1. a "pure" multinomial logit model - defined by the authors to be a model including only individual specific variables
+2. a "pure" conditional logit model - defined by the authors to be a model including only alternative specific variable
+3. a "mixed" logit model - defined by the authors to be a model containing both individual specific and alternative specific variables
+
+
+What the authors call a "pure" multinomial logit was illustrated above. The "pure" conditional logit and "mixed" logit can be estimated using the ```mlogit()``` function by changing the inputs to the ```formula``` argument:
+
+```{r}
+# a "pure" conditional logit
+c.logit <- mlogit(depvar ~ ic + oc | 0, H)
+summary(c.logit)
+
+```
+
+Just because we can, we should compare this output to the output from the conditional logit function ```clogit``` in the ```survival``` package:
+
+```{r}
+summary(clogit(depvar~ic+oc+strata(idcase),data=H))
+```
+
+```{r}
+# a "mixed" logit
+mixed.logit <- mlogit(depvar ~ ic + oc | income, H)
+summary(mixed.logit)
+```
+
+## Random Parameters Logit {.tabset}
+
+If you found the use of the terminology 'mixed logit' in the last section unappealing, this section will probably be equally unsatisfying. However, in [Vignette #5 from the mlogit package repository](https://cran.r-project.org/web/packages/mlogit/vignettes/c5.mxl.html) the authors present the random parameters logit model, also calling it the 'mixed' logit model. This application of the term 'mixed logit' seems more in line with the conventional understanding what the mixed logit model is (see [McFadden and Train, 2000](https://onlinelibrary.wiley.com/doi/abs/10.1002/1099-1255(200009/10)15:5%3C447::AID-JAE570%3E3.0.CO;2-1)). 
+
+I will again reiterate that this is not an area where I claim any technical expertise. For that reason, I'm going to stick with the examples in the package Vignette in order to illustrate.
+
+The key thing to note about the Random Parameters (Mixed) Logit in the ```mlogit``` package is that the model is called using the same ```mlogit()``` function with a key added argument: ```rpar```. The ```rpar``` argument specifies which parameters will vary across individuals and what distribution they should be drawn from.
+
+### Data
+
+This example uses the ```Train``` data set. These data are described on [p.37 of the mlogit documentation](https://cran.r-project.org/web/packages/mlogit/mlogit.pdf). They are stated preference data from 235 Dutch individuals choosing hypothetical train trips on the basis of cost, comfort, travel time, and number of changes.
+
+```{r}
+data(Train)
+head(Train)
+```
+
+As before, the data should be massaged into an indexed data frame suitable for use with the ```mlogit()``` function:
+
+```{r}
+data("Train", package = "mlogit")
+
+# create a new column where every row has a unique choice id
+Train$choiceid <- 1:nrow(Train)
+Tr <- dfidx(Train, choice = "choice", varying = 4:11, sep = "_",
+            opposite = c("price", "comfort", "time", "change"),
+            idx = list(c("choiceid", "id")), idnames = c("chid", "alt"))
+# data include price in cents of guilders, convert to US dollars... 1 NLG ~ 0.5 USD
+Tr$price <- Tr$price / 100 * 0.5
+Tr$time <- Tr$time / 60
+
+```
+
+### Estimating the Model
+
+Here we estimate the random parameter logit where the parameters ```time```, ```change```, and ```comfort``` are allowed to vary to capture individual heterogeneity. This is accomplished by using the argument ```rpar=c(time="n",change="n",comfort="n")``` in the ```mlogit``` function. The ```"n"``` option indicates that the random parameters will be drawn from the normal distribution. Other options are available:
+
+* "ln" lognormal
+* "cn" zero-censored normal
+* "u" uniform
+* "t" triangle
+
+One other argument worth highlighting, ```halton=NA``` indicates that a Halton sequence (see [Train 1999](https://eml.berkeley.edu/wp/train0899.pdf)) is used to take "intelligent" draws (rather than pseudo-random) for the random parameters and default values are used for the prime of the sequence.
+
+Also, according to the ```mFormula``` construction, note that the estimation equation:
+
+```choice ~ prince + time + change + comfort | -1```
+
+indicates that the model will have the alternative specific variables ```price```, ```time```, ```change```, and ```comfort```. The ``` | -1 ``` indicates that the model does not include individual specific variables, and further thatno intercept terms (constants) should be included.
+
+```{r}
+Train.mxlu <- mlogit(choice ~ price + time + change + comfort| -1, Tr,
+panel = TRUE, rpar = c(time = "n", change = "n", comfort = "n"), R = 100,
+correlation = FALSE, halton = NA, method = "bhhh")
+names(coef(Train.mxlu))
+```
+
+Somewhat confusingly, negating the intercept term can be accomplished with either a ```-1``` or ```0``` in the second partition of the ```mFormula``` object. From the ```mFormula``` help page:
+
+> The intercept is necessarely alternative specific (a generic intercept is not identified because only utility differences are relevant). Therefore, it deals with the second part of the formula. As it is usual in R, the default behaviour is to include an intercept. A model without an intercept may be specified by including + 0 or - 1 in the second right-hand side part of the formula. + 0 or - 1 in the first and in the third part of the formula are simply ignored.
+
+```{r}
+Train.mxlu2 <- mlogit(choice ~ price + time + change + comfort | 0, Tr,
+panel = TRUE, rpar = c(time = "n", change = "n", comfort = "n"), R = 100,
+correlation = FALSE, halton = NA, method = "bhhh")
+```
+
+## WTP in DCMs
+
+[Per the supporting mlogit documentation](https://cran.r-project.org/web/packages/mlogit/vignettes/c5.mxl.html), direct estimation of WTP is not supported by ```mlogit```. When using the ```mlogit``` package, WTP values should be calculated by hand using estimated model parameters.
+
+There are some packages that will implement a Krinsky-Robb or bootstrapping procedure to get confidence intervals around WTP estimates. However, my understanding of the Krinsky-Robb method (which may be imperfect) is such that I don't think it would terribly difficult to implement in R by hand. I will attempt to illustrate this here.
+
+The Krinsky-Robb procedure for bootstrapping confidence intervals around a WTP estimate can be summarized as a 9 step process:
+
+1. estimate the WTP model of interest
+2. obtain the vector of parameter estimates $\hat\beta$ and the covariance matrix $V(\hat\beta)$
+3. calculate the Cholesky decomposition ($C$) of the covariance matrix such that $CC'=V(\hat\beta)$
+4. randomly draw from the standard normal distribution a vector $x$ with $k$ independent elements
+5. calculate a new vector of parameter estimates $Z$ such that $Z=\hat\beta + C'x$
+6. use the new vector $Z$ to calculate the WTP
+7. repeat steps 4,5,6 to obtain an empirical distribution for WTP
+8. sort the WTP values in ascending order
+9. obtain the 95% confidence interval around the mean WTP 
+
+To illustrate this I'll use a well-documented example from earlier.
+
+Step 1: Estimate the WTP model of interest
+
+```{r}
+# load the data 
+data("Heating", package = "mlogit")
+# set up the data in the way that mlogit wants it
+H <- dfidx(Heating, choice = "depvar", varying = c(3:12))
+# a "pure" conditional logit
+wtp.model <- mlogit(depvar ~ ic + oc | 0, H)
+summary(c.logit)
+```
+
+Step 2: obtain the vector of parameter estimates and covariance matrix
+
+```{r}
+# the parameter vector is extracted using the model output
+model.coef <- wtp.model$coefficients
+# the covariance matrix of the estimates can be extracted with the vcov() method
+V.beta <- vcov(wtp.model,what='coefficient')
+
+```
+ 
+Step 3: get the Cholesky Decomposition of $V(\hat\beta)$
+
+```{r}
+chol.V <- chol(V.beta)
+
+```
+
+```{r}
+#verify that (chol.V)(chol.V)'=V.beta
+chol.V %*% t(chol.V)
+V.beta
+```
+
+soooo...not exact but pretty close.
+
+Step 4: randomly draw from a standard normal a vector $x$ with $k$ independent elements
+
+```{r}
+x <- rnorm(2, mean=0,sd=1)
+
+```
+
+Step 5: calculate a new vector of paramter estimates $Z=\hat\beta + C'x$
+
+```{r}
+# coerce atomic vectors to matricies 
+model.coef <- matrix(model.coef,nr=1)
+Z <- t(model.coef) + (t(chol.V) %*% x)
+
+```
+
+Step 6: calculate WTP using the new parameter vector Z
+
+Here we are using the ratio $\frac{\beta_{oc}}{\beta_{ic}}$ = WTP
+
+```{r}
+WTP= Z[2]/Z[1]
+
+```
+
+
+Step 7: Repeat steps 4,5,6 a bunch of times 
+
+Recommendations that I have seen seem to converge on $n>=5,000$ for the number of recommended replications. Let's write this as a function, then call the function a bunch of times:
+
+
+```{r}
+# a function to implement Steps 4, 5, and 6 above
+kr.sim <- function(model.coefs,V){
+  chol.V <- chol(V)
+  x <- rnorm(2, mean=0,sd=1)
+  model.coef <- matrix(model.coef,nr=1)
+  Z <- t(model.coef) + (t(chol.V) %*% x)
+  WTP= Z[2]/Z[1]
+return(WTP)  
+}
+
+```
+
+```{r}
+# call the function above 5,000 times...we could avoid a loop but there's not much point here. the loop 
+# runs pretty fast
+wtp.sim <- list()
+for(i in 1:5000){
+  wtp.sim[i] <- kr.sim(model.coefs=model.coef,V=V.beta)
+}
+
+
+```
+
+Step 8: Sort the N values of WTP in ascending order
+
+```{r}
+wtp.sim <- sort(unlist(wtp.sim))
+
+```
+
+Step 9: We can get the 95% confidence interval around mean WTP by dropping the top and bottom 2.5% of obs in ```wtp.sim```...or we can just summarize the quantiles of the empirical distribution
+
+```{r}
+quantile(wtp.sim,probs=c(0,0.025,0.5,0.975,1))
+```
+
+
+## Resources
+
+### General
+
+[Introduction to Statistical Learning with Applications in R](http://faculty.marshall.usc.edu/gareth-james/ISL/ISLR%20Seventh%20Printing.pdf)
+
+### Specific
+
+There are a number of other R packages that have been written to assist with the various flavors of discrete choice analysis. I have attempted to list some here for your collective enjoyment:
+
+A conditional logit function is implemented as [clogit](https://www.rdocumentation.org/packages/survival/versions/3.2-3/topics/clogit) in the [survival package](https://cran.r-project.org/web/packages/survival/index.html).
+
+[Mixed Logit with Bayesian Methods](https://cran.r-project.org/web/packages/RSGHB/index.html)
+
+[Latent Class Multinomial Logit Models with gmnl](https://cran.r-project.org/web/packages/gmnl/gmnl.pdf)
+
+[Dichotomous Choice Models with DChoice](https://cran.r-project.org/web/packages/DCchoice/DCchoice.pdf)
