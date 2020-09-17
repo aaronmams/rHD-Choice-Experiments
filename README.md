@@ -36,4 +36,6 @@ Lessons
     which facilitates use of Bayesian methods for generating efficient
     designs for choice experiments.
 
-3.  `Discrete-Choice-Models-in-R.Rmd`
+3.  [Discrete-Choice-Models-in-R.Rmd](https://github.com/aaronmams/rHD-Choice-Experiments/blob/master/Discrete-Choice-Models-in-R.Rmd)
+    goes through some pretty basic estimation of different discrete
+    choice models.
