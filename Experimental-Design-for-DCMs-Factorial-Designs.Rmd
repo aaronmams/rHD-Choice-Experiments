@@ -9,7 +9,7 @@ output: html_document
 
 ## Executive Summary
 
-This is a rather superficial illustration of some R functions and methods one can use to generate full factorial and fractional factorial experimental designs. I want to emphasize that this tutorial illustrates some things that **CAN** be done. I am not qualified to advise anyone on what **SHOULD** be done in the arena of experimental design for choice experiments. Although I claim no expertise in this domain, I have tried pretty hard to review the important literatue in order to create examples that, I hope, are not complete nonsense.
+This is a rather superficial illustration of some R functions and methods one can use to generate full factorial and fractional factorial experimental designs. I want to emphasize that this tutorial illustrates some things that **CAN** be done. I am not qualified to advise anyone on what **SHOULD** be done in the arena of experimental design for choice experiments. Although I claim no expertise in this domain, I have tried pretty hard to review the important literature in order to create examples that, I hope, are not complete nonsense.
 
 Much of what is here is taken directly from the supporting documentation for the [support.CEs](https://cran.r-project.org/web/packages/support.CEs/support.CEs.pdf) package. 
 
@@ -55,7 +55,7 @@ where $V()$ is the indirect utility function defined linearly as:
 
 $V_{in} = \sum_{k=1}^{K}\beta_{ik}X_{ikn}$
 
-A quantity that is generally of interest to economists initiating choice experiments like the one describe above is the Marginal Willingness to Pay for some attribute. In the case of the experiment above, the MWTP for a non-monteary good comes from the parameters of the indirect utility function. If $\beta_{eco}$ is the utility parameter on the "eco-labeling variable" and $\beta_{price}$ is the parameter on the product price variable, than
+A quantity that is generally of interest to economists initiating choice experiments like the one describe above is the Marginal Willingness to Pay for some attribute. In the case of the experiment above, the MWTP for a non-monetary good comes from the parameters of the indirect utility function. If $\beta_{eco}$ is the utility parameter on the "eco-labeling variable" and $\beta_{price}$ is the parameter on the product price variable, then
 
 MWTP = $-\frac{\beta_{eco}}{\beta_{price}}$
 
@@ -82,8 +82,7 @@ The ```rotaton.design()``` method uses a call to the ```oa.design()``` method fr
 It is worth pointing out here that [Street, Burgess, and Louviere](https://www.sciencedirect.com/science/article/abs/pii/S0167811605000510) discuss the technique of 'rotation' designs in the context of experimental designs for discrete choice models that always give an optimal design for estimation of main effects:
 
 
-> In particular we describe a construction technique that always gives an optimal or near-optimal design for the estimation of main effects, and gives near-optimal designs for the estimation of main effects plus two-factor interaction effects. In addition the efficiency of any proposed design can be calculated using the results below, thus allowing any specific designs to be compared. The basic idea of the construction technique is simple: start with an OMEP to represent the profiles in the first option in the choice sets. Choose some systematic set of level changes to get from the profiles in the first option in the choice sets to the profiles in the second option in the choice sets, and then choose another
-systematic set of changes to get from the profiles in the first option to the profiles in the third option, and so on. The benefit of this approach is that the nature of the systematic changes required to make the resulting choice sets optimal has been determined for the estimation of main effects. Bunch, Louviere, and Anderson (1996) introduced cyclic or shifted designs, but their designs only work well for estimating main effects, and the numbers of levels for all the attributes must be at least equal to the size of the choice sets. Systematic changes to get near-optimal sets for estimating main effects plus two-factor interaction effects also have been determined (Street et al., 2005, p.462).
+> In particular we describe a construction technique that always gives an optimal or near-optimal design for the estimation of main effects, and gives near-optimal designs for the estimation of main effects plus two-factor interaction effects. In addition the efficiency of any proposed design can be calculated using the results below, thus allowing any specific designs to be compared. The basic idea of the construction technique is simple: start with an OMEP to represent the profiles in the first option in the choice sets. Choose some systematic set of level changes to get from the profiles in the first option in the choice sets to the profiles in the second option in the choice sets, and then choose another systematic set of changes to get from the profiles in the first option to the profiles in the third option, and so on. The benefit of this approach is that the nature of the systematic changes required to make the resulting choice sets optimal has been determined for the estimation of main effects. Bunch, Louviere, and Anderson (1996) introduced cyclic or shifted designs, but their designs only work well for estimating main effects, and the numbers of levels for all the attributes must be at least equal to the size of the choice sets. Systematic changes to get near-optimal sets for estimating main effects plus two-factor interaction effects also have been determined (Street et al., 2005, p.462).
 
 
 I'm going to start by using my own call to ```oa.design()``` to generate a candidate set. Recall that our example choice experiment has 3 attributes which all have 3 levels. 
@@ -327,7 +326,7 @@ An interesting fact about the ```clogit()``` function from the ```survival``` pa
 
 If we take a look at how the sausage is made inside the ```clogit``` factory we see that this function is basically just a wrapper to the [coxph()](https://www.rdocumentation.org/packages/survival/versions/3.2-3/topics/coxph) method inside the ```survival```. Here is the source code for the ```clogit()``` function with some annotations from me:
 
-```{r}
+```{r eval=F}
 
 function (formula, data, weights, subset, na.action, method = c("exact", 
     "approximate", "efron", "breslow"), ...) 
