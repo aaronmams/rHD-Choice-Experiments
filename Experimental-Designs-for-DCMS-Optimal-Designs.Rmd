@@ -120,7 +120,7 @@ The ```Modfed()``` function also accepts the inputs:
 * alt.cte: a vector indicating whether alternative specific constants should be included
 * par.draws: a matrix of values defining the prior distribution of the underlying model parameters
 
-In the code chunk below we generate a design for the profiles defined in the object ```cs``` with 8 choice tasks and 2 alternatives per choice task. Altnerative specific constants are not included and the prior distribution of model parameters is defined by the matrix ```M```.
+In the code chunk below we generate a design for the profiles defined in the object ```cs``` with 8 choice tasks and 2 alternatives per choice task. Alternative specific constants are not included and the prior distribution of model parameters is defined by the matrix ```M```.
 
 ```{r}
 D <- Modfed(cand.set = cs, n.sets = 8, n.alts = 2,
